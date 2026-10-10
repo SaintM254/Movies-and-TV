@@ -98,6 +98,9 @@ class PlayerActivity : AppCompatActivity() {
 
         val exoPlayer = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(httpFactory))
+            // Rewind / fast-forward buttons and D-pad seek steps (TV remotes).
+            .setSeekBackIncrementMs(SEEK_STEP_MS)
+            .setSeekForwardIncrementMs(SEEK_STEP_MS)
             .build()
             .also { p ->
                 p.setMediaItem(MediaItem.fromUri(url))
@@ -128,10 +131,8 @@ class PlayerActivity : AppCompatActivity() {
 
     @SuppressLint("ClickableViewAccessibility")
     private fun setupGestures() {
-        // Controller must not react to plain taps; we toggle it manually so
-        // double-taps are never swallowed by the controls.
-        playerView.setControllerShowOnTapEnabled(false)
-
+        // Consuming every touch here disables PlayerView's own tap-to-toggle so
+        // double-taps are never swallowed by the controls appearing mid-gesture.
         val detector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDown(e: MotionEvent): Boolean = true
 

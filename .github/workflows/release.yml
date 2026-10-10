@@ -75,13 +75,18 @@ jobs:
             {
               echo "## Gradle build failed"
               echo '```'
-              grep -E "^e: |error:|FAILURE:|What went wrong|^> |Caused by" build.log | head -60
+              grep -E "^e: |error: |FAILURE:|What went wrong|Execution failed|Caused by:" build.log | grep -v "^> Task" | head -60
+              echo "---- detail lines ----"
+              grep "^> " build.log | grep -v "^> Task" | head -25
               echo "---- tail ----"
               tail -25 build.log
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
             echo "::error::Gradle build failed — see annotations below and the job summary"
-            grep -E "^e: |error: |FAILURE:|^> " build.log | head -20 | while IFS= read -r line; do
+            {
+              grep -E "^e: |error: |FAILURE:|Execution failed|Caused by:" build.log | head -15
+              grep "^> " build.log | grep -v "^> Task" | head -8
+            } | while IFS= read -r line; do
               echo "::error::$line"
             done
             exit 1
