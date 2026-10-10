@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Vidsource</string>
+    <string name="app_tagline">Movies &amp; TV</string>
+
+    <!-- Browser -->
+    <string name="hint_tv">◀▶▲▼ move pointer · OK click · REW/FF scroll page · CH± switch source · MENU settings</string>
+    <string name="hint_mobile">Browse the site below — videos open in the native player. Tap an icon to switch source.</string>
+    <string name="switching_to">Switching to %1$s</string>
+    <string name="settings">Settings</string>
+
+    <!-- Player -->
+    <string name="seek_back">« %1$ds</string>
+    <string name="seek_forward">%1$ds »</string>
+    <string name="playback_error">Playback error (%1$s)</string>
+    <string name="choose_source">Choose source</string>
+
+    <!-- Sources / settings -->
+    <string name="sources_title">Source profiles</string>
+    <string name="sources_hint">Add links to the sites you want to watch. Each source is a channel you can switch between.</string>
+    <string name="add_source">Add source</string>
+    <string name="edit_source">Edit source</string>
+    <string name="delete_source">Delete source</string>
+    <string name="delete_confirm">Delete \"%1$s\"?</string>
+    <string name="delete">Delete</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="done">Done</string>
+    <string name="name">Name</string>
+    <string name="url">Website link</string>
+    <string name="url_hint">https://example.com</string>
+    <string name="name_hint">e.g. CineJoy</string>
+    <string name="active">Active</string>
+    <string name="set_active">Active source: %1$s</string>
+    <string name="source_added">Source added</string>
+    <string name="source_updated">Source updated</string>
+    <string name="empty_sources">No sources yet.\nAdd your first website link below.</string>
+    <string name="error_name_required">Name is required</string>
+    <string name="error_url_required">Link is required</string>
+    <string name="error_url_invalid">Enter a valid website link</string>
+</resources>

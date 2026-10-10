@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Cinema-dark palette -->
+    <color name="background">#FF12141C</color>
+    <color name="surface">#FF1B1E28</color>
+    <color name="surface_variant">#FF262A36</color>
+    <color name="primary">#FFE8B84B</color>
+    <color name="on_primary">#FF12141C</color>
+    <color name="secondary">#FFE53935</color>
+    <color name="on_surface">#FFF5F5F5</color>
+    <color name="on_surface_variant">#FFB0B4C0</color>
+    <color name="outline">#FF3A3F4E</color>
+    <color name="ic_launcher_background">#FF12141C</color>
+</resources>
