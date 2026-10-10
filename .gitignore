@@ -11,3 +11,8 @@ captures/
 *.apk
 *.aab
 output.json
+
+# Signing keystores must never be committed
+*.jks
+*.p12
+*.keystore

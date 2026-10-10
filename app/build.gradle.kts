@@ -17,6 +17,21 @@ android {
         vectorDrawables.useSupportLibrary = true
     }
 
+    signingConfigs {
+        create("release") {
+            // Signed with VIDSOURCE_KEYSTORE_* env vars when available (CI),
+            // otherwise the release build falls back to debug signing so it
+            // stays installable for sideloading.
+            val ksPath = System.getenv("VIDSOURCE_KEYSTORE_FILE")
+            if (ksPath != null && file(ksPath).exists()) {
+                storeFile = file(ksPath)
+                storePassword = System.getenv("VIDSOURCE_KEYSTORE_PASSWORD") ?: "vidsource"
+                keyAlias = System.getenv("VIDSOURCE_KEY_ALIAS") ?: "vidsource"
+                keyPassword = System.getenv("VIDSOURCE_KEY_PASSWORD") ?: "vidsource"
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -25,6 +40,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release").let { cfg ->
+                if (cfg.storeFile != null) cfg else signingConfigs.getByName("debug")
+            }
         }
         debug {
             isMinifyEnabled = false

@@ -79,6 +79,33 @@ Requirements: **Android Studio** (Koala or newer), **JDK 17**, Android SDK 34.
 Or open the project in Android Studio and press Run. First Gradle sync downloads
 Gradle 8.7, the Android Gradle Plugin 8.5.2 and dependencies.
 
+### Releases (CI)
+
+Every `v*` tag triggers **GitHub Actions** (`.github/workflows/release.yml`) which builds
+and publishes a GitHub Release with installable APKs + `SHA256SUMS.txt`:
+
+```bash
+git tag v1.0.0 && git push origin v1.0.0   # → Release "Vidsource v1.0.0"
+```
+
+Grab the APK from the [Releases](../../releases) page, or:
+
+```bash
+gh release download v1.0.0 --pattern 'Vidsource-1.0.0.apk' -R SaintM254/Movies-and-TV
+adb install Vidsource-1.0.0.apk
+```
+
+**Signing:** CI signs the release APK with a keystore stored in the Actions cache
+(so upgrades install over older builds). To keep the signature stable *forever*,
+create a repo secret `VIDSOURCE_KEYSTORE_BASE64` containing a PKCS#12 keystore:
+
+```bash
+base64 -w0 my-keystore.p12      # paste output into
+# GitHub → Settings → Secrets and variables → Actions → New repository secret
+```
+
+(Optional: also set `VIDSOURCE_KEYSTORE_PASSWORD`; default is `vidsource`.)
+
 ### Install on an Android TV (e.g. TCL)
 
 ```bash
