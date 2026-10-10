@@ -7,17 +7,18 @@ import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.FrameLayout
 import android.widget.ImageButton
-import android.widget.ProgressBar
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -31,20 +32,19 @@ import com.vidsource.app.util.AppUtil
 import kotlinx.coroutines.launch
 
 /**
- * Browser screen: renders the active source website and hands detected
- * video URLs over to the native player. Sources are switched from the
- * favicon strip like TV channels (CH+/CH- on the remote).
+ * Full-screen browser. The website fills the entire screen; a floating
+ * hamburger on the left opens a hidden drawer where sources are switched
+ * (like channels) and where the Settings entry lives at the bottom.
  */
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var drawerLayout: DrawerLayout
+    private lateinit var drawerPanel: View
+    private lateinit var drawerList: RecyclerView
     private lateinit var webView: WebView
     private lateinit var pointer: DpadPointerView
-    private lateinit var sourceStrip: RecyclerView
-    private lateinit var progressBar: ProgressBar
-    private lateinit var titleView: TextView
-    private lateinit var chrome: View
-    private lateinit var hintBar: TextView
-    private lateinit var sourceAdapter: SourceSwitcherAdapter
+    private lateinit var contentLayout: FrameLayout
+    private lateinit var drawerAdapter: SourceDrawerAdapter
 
     private val repo get() = (application as VidsourceApp).sources
     private val faviconStore get() = (application as VidsourceApp).favicons
@@ -73,11 +73,11 @@ class MainActivity : AppCompatActivity() {
             val sources = repo.getSources()
             val active = repo.getActive()
             if (active.id != currentSource.id) {
-                sourceAdapter.submit(sources, active.id)
+                drawerAdapter.submit(sources, active.id)
                 switchToSource(active.id)
             } else {
                 currentSource = active
-                sourceAdapter.submit(sources, active.id)
+                drawerAdapter.submit(sources, active.id)
                 preloadMissingFavicons(sources)
             }
         }
@@ -88,43 +88,77 @@ class MainActivity : AppCompatActivity() {
         isTv = AppUtil.isTv(this)
         AppUtil.keepScreenOn(this)
 
-        chrome = findViewById(R.id.chrome)
-        titleView = findViewById(R.id.titleView)
-        progressBar = findViewById(R.id.webProgress)
-        sourceStrip = findViewById(R.id.sourceStrip)
+        drawerLayout = findViewById(R.id.drawerLayout)
+        drawerPanel = findViewById(R.id.drawerPanel)
+        drawerList = findViewById(R.id.drawerList)
+        contentLayout = findViewById(R.id.contentLayout)
         webView = findViewById(R.id.webView)
         pointer = findViewById(R.id.pointer)
-        hintBar = findViewById(R.id.hintBar)
 
         hooksJs = readAsset("video_hooks.js")
         currentSource = repo.getActive()
 
-        setupToolbar()
-        setupSourceStrip()
+        setupDrawer()
         setupWebView()
-        setupHints()
 
         val forcedUrl = intent?.getStringExtra(EXTRA_FORCE_SOURCE_URL)
         if (forcedUrl != null) {
             webView.loadUrl(SourceProfile.normalizeUrl(forcedUrl))
         } else {
-            switchToSource(currentSource.id, reload = false)
             webView.loadUrl(currentSource.url)
         }
     }
 
-    private fun setupToolbar() {
-        titleView.text = currentSource.name
-        findViewById<ImageButton>(R.id.settingsButton).setOnClickListener { openSettings() }
+    // ------------------------------------------------------------------
+    // Drawer (hidden source switcher + settings at the bottom)
+    // ------------------------------------------------------------------
+
+    private fun setupDrawer() {
+        findViewById<ImageButton>(R.id.menuButton).setOnClickListener { toggleDrawer() }
+        findViewById<View>(R.id.addSourceRow).setOnClickListener {
+            closeDrawer()
+            openSettings()
+        }
+        findViewById<View>(R.id.settingsRow).setOnClickListener {
+            closeDrawer()
+            openSettings()
+        }
+
+        drawerAdapter = SourceDrawerAdapter(faviconStore) { source ->
+            closeDrawer()
+            switchToSource(source.id)
+        }
+        drawerList.layoutManager = LinearLayoutManager(this)
+        drawerList.adapter = drawerAdapter
+        drawerAdapter.submit(repo.getSources(), currentSource.id)
+        preloadMissingFavicons(repo.getSources())
+
+        drawerLayout.addDrawerListener(object : DrawerLayout.SimpleDrawerListener() {
+            override fun onDrawerOpened(drawerView: View) {
+                if (isTv) {
+                    pointer.pointerActive = false
+                    drawerList.requestFocus()
+                }
+            }
+
+            override fun onDrawerClosed(drawerView: View) {
+                if (isTv) {
+                    webView.requestFocus()
+                }
+            }
+        })
     }
 
-    private fun setupSourceStrip() {
-        sourceAdapter = SourceSwitcherAdapter(faviconStore) { source -> switchToSource(source.id) }
-        sourceStrip.layoutManager =
-            LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        sourceStrip.adapter = sourceAdapter
-        sourceAdapter.submit(repo.getSources(), currentSource.id)
-        preloadMissingFavicons(repo.getSources())
+    private fun toggleDrawer() {
+        if (drawerLayout.isDrawerOpen(drawerPanel)) closeDrawer() else openDrawer()
+    }
+
+    private fun openDrawer() {
+        drawerLayout.openDrawer(drawerPanel)
+    }
+
+    private fun closeDrawer() {
+        drawerLayout.closeDrawer(drawerPanel)
     }
 
     private fun preloadMissingFavicons(sources: List<SourceProfile>) {
@@ -132,18 +166,23 @@ class MainActivity : AppCompatActivity() {
             if (faviconStore.load(source.url) == null) {
                 lifecycleScope.launch {
                     faviconStore.fetchRemoteIcon(source.url)
-                    sourceAdapter.refreshIcons()
+                    drawerAdapter.refreshIcons()
                 }
             }
         }
     }
+
+    // ------------------------------------------------------------------
+    // WebView — tuned for speed, standard browser behaviour
+    // ------------------------------------------------------------------
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            databaseEnabled = true
+            // Leave the default WebView user agent untouched: custom UAs make
+            // many sites serve slow anti-bot / fallback pages.
             mediaPlaybackRequiresUserGesture = false
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             useWideViewPort = true
@@ -151,8 +190,15 @@ class MainActivity : AppCompatActivity() {
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false
-            userAgentString = "$userAgentString Vidsource/1.0"
+            cacheMode = WebSettings.LOAD_DEFAULT
+            setGeolocationEnabled(false)
         }
+        try {
+            CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
+        } catch (e: Exception) {
+            // Not fatal.
+        }
+
         webView.addJavascriptInterface(VideoBridge(), "Vidsource")
         webView.webViewClient = BrowserClient()
         webView.webChromeClient = ChromeClient()
@@ -161,22 +207,12 @@ class MainActivity : AppCompatActivity() {
             pointer.visibility = View.VISIBLE
             pointer.attach(webView, AppUtil.dp(this, 36f))
             webView.setOnFocusChangeListener { _, hasFocus ->
-                pointer.pointerActive = hasFocus
-                if (hasFocus) pointer.center()
+                pointer.pointerActive = hasFocus && !drawerLayout.isDrawerOpen(drawerPanel)
+                if (pointer.pointerActive) pointer.center()
             }
-            webView.isFocusable = true
-            webView.isFocusableInTouchMode = true
             webView.requestFocus()
         } else {
             pointer.visibility = View.GONE
-        }
-    }
-
-    private fun setupHints() {
-        if (isTv) {
-            hintBar.text = getString(R.string.hint_tv)
-        } else {
-            hintBar.text = getString(R.string.hint_mobile)
         }
     }
 
@@ -184,19 +220,16 @@ class MainActivity : AppCompatActivity() {
     // Source switching (channel behaviour)
     // ------------------------------------------------------------------
 
-    private fun switchToSource(id: String, reload: Boolean = true) {
+    private fun switchToSource(id: String) {
         val target = repo.getSources().firstOrNull { it.id == id } ?: return
         repo.setActive(target.id)
         currentSource = target
-        titleView.text = target.name
-        sourceAdapter.setActiveId(target.id)
-        if (reload) {
-            webView.stopLoading()
-            webView.loadUrl(target.url)
-            if (isTv) {
-                webView.requestFocus()
-                pointer.center()
-            }
+        drawerAdapter.setActiveId(target.id)
+        webView.stopLoading()
+        webView.loadUrl(target.url)
+        if (isTv) {
+            webView.requestFocus()
+            pointer.center()
         }
     }
 
@@ -258,33 +291,19 @@ class MainActivity : AppCompatActivity() {
             handleUrl(url)
 
         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-            progressBar.visibility = View.VISIBLE
             view?.evaluateJavascript(hooksJs, null)
         }
 
         override fun onPageFinished(view: WebView?, url: String?) {
-            progressBar.visibility = View.GONE
             view?.evaluateJavascript(hooksJs, null)
         }
     }
 
     inner class ChromeClient : WebChromeClient() {
-        override fun onProgressChanged(view: WebView, newProgress: Int) {
-            progressBar.progress = newProgress
-        }
-
-        override fun onReceivedTitle(view: WebView, title: String?) {
-            if (title.isNullOrBlank()) {
-                titleView.text = currentSource.name
-            } else {
-                titleView.text = title
-            }
-        }
-
         override fun onReceivedIcon(view: WebView, icon: Bitmap?) {
             icon ?: return
             faviconStore.save(faviconStore.circleCrop(icon), currentSource.url)
-            runOnUiThread { sourceAdapter.refreshIcons() }
+            runOnUiThread { drawerAdapter.refreshIcons() }
         }
 
         override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
@@ -295,9 +314,7 @@ class MainActivity : AppCompatActivity() {
             }
             fullscreenView = view
             fullscreenCallback = callback
-            chrome.visibility = View.GONE
-            hintBar.visibility = View.GONE
-            (findViewById<View>(R.id.rootLayout) as ViewGroup).addView(
+            contentLayout.addView(
                 view,
                 ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -339,7 +356,7 @@ class MainActivity : AppCompatActivity() {
                 zapSource(-1); return true
             }
             KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_GUIDE -> {
-                openSettings(); return true
+                toggleDrawer(); return true
             }
             KeyEvent.KEYCODE_PAGE_UP, KeyEvent.KEYCODE_MEDIA_REWIND -> {
                 webView.scrollBy(0, -webView.height * 3 / 4); return true
@@ -350,10 +367,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         // TV: D-pad drives the virtual pointer while the page has focus.
-        if (isTv && (currentFocus == webView || currentFocus == null)) {
-            // Pushing past the top edge moves focus to the source strip.
+        if (isTv && !drawerLayout.isDrawerOpen(drawerPanel) &&
+            (currentFocus == webView || currentFocus == null)
+        ) {
             if (keyCode == KeyEvent.KEYCODE_DPAD_UP && pointer.isAtTop()) {
-                sourceStrip.requestFocus()
+                openDrawer()
                 return true
             }
             if (pointer.handleKey(keyCode)) return true
@@ -363,6 +381,10 @@ class MainActivity : AppCompatActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
+        if (drawerLayout.isDrawerOpen(drawerPanel)) {
+            closeDrawer()
+            return
+        }
         if (fullscreenView != null) {
             exitFullscreen()
             return
@@ -384,11 +406,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onHideFullscreen() {
-        fullscreenView?.let { (findViewById<View>(R.id.rootLayout) as ViewGroup).removeView(it) }
+        fullscreenView?.let { contentLayout.removeView(it) }
         fullscreenView = null
         fullscreenCallback = null
-        chrome.visibility = View.VISIBLE
-        hintBar.visibility = View.VISIBLE
     }
 
     private fun openSettings() {

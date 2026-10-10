@@ -50,25 +50,41 @@ class FaviconStore(private val context: Context) {
         null
     }
 
-    /** Best-effort download of https://host/favicon.ico for the source switcher. */
+    /** Best-effort online icon lookup: modern icon services first, then the site's own favicon. */
     suspend fun fetchRemoteIcon(pageUrl: String): Bitmap? = withContext(Dispatchers.IO) {
-        try {
-            val host = Uri.parse(pageUrl).host ?: return@withContext null
-            val conn = URL("https://$host/favicon.ico").openConnection() as HttpURLConnection
-            conn.connectTimeout = 5000
-            conn.readTimeout = 5000
-            conn.instanceFollowRedirects = true
-            val bitmap = if (conn.responseCode == 200) {
-                conn.inputStream.use { BitmapFactory.decodeStream(it) }
-            } else {
+        val host = try {
+            Uri.parse(pageUrl).host ?: return@withContext null
+        } catch (e: Exception) {
+            return@withContext null
+        }
+        val candidates = listOf(
+            "https://icons.duckduckgo.com/ip3/$host.ico",
+            "https://www.google.com/s2/favicons?domain=$host&sz=64",
+            "https://$host/favicon.ico"
+        )
+        for (urlString in candidates) {
+            val bitmap = try {
+                val conn = URL(urlString).openConnection() as HttpURLConnection
+                conn.connectTimeout = 5000
+                conn.readTimeout = 5000
+                conn.instanceFollowRedirects = true
+                conn.setRequestProperty("Accept", "image/*")
+                val bmp = if (conn.responseCode == 200) {
+                    conn.inputStream.use { BitmapFactory.decodeStream(it) }
+                } else {
+                    null
+                }
+                conn.disconnect()
+                bmp
+            } catch (e: Exception) {
                 null
             }
-            conn.disconnect()
-            if (bitmap != null) save(bitmap, pageUrl)
-            bitmap
-        } catch (e: Exception) {
-            null
+            if (bitmap != null) {
+                save(bitmap, pageUrl)
+                return@withContext bitmap
+            }
         }
+        null
     }
 
     /** Circular avatar with the source's first letter. */

@@ -12,12 +12,12 @@ import com.vidsource.app.data.SourceProfile
 import com.vidsource.app.util.FaviconStore
 
 /**
- * Horizontal strip of source "channels" (favicon = profile switcher).
+ * Source "channels" listed inside the hidden drawer menu.
  */
-class SourceSwitcherAdapter(
+class SourceDrawerAdapter(
     private val faviconStore: FaviconStore,
     private val onClick: (SourceProfile) -> Unit
-) : RecyclerView.Adapter<SourceSwitcherAdapter.Holder>() {
+) : RecyclerView.Adapter<SourceDrawerAdapter.Holder>() {
 
     private val items = mutableListOf<SourceProfile>()
     private var activeId: String? = null
@@ -41,7 +41,7 @@ class SourceSwitcherAdapter(
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
         val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_source, parent, false)
+            .inflate(R.layout.item_source_drawer, parent, false)
         return Holder(view)
     }
 
@@ -54,22 +54,23 @@ class SourceSwitcherAdapter(
     inner class Holder(view: View) : RecyclerView.ViewHolder(view) {
         private val icon: ImageView = view.findViewById(R.id.sourceIcon)
         private val name: TextView = view.findViewById(R.id.sourceName)
-        private val frame: View = view.findViewById(R.id.iconFrame)
+        private val host: TextView = view.findViewById(R.id.sourceHost)
+        private val check: ImageView = view.findViewById(R.id.activeCheck)
 
         fun bind(source: SourceProfile) {
             name.text = source.name
+            host.text = source.host()
+
             val bitmap: Bitmap = faviconStore.load(source.url)
                 ?: faviconStore.letterAvatar(source.name, source.url)
             icon.setImageBitmap(bitmap)
 
             val selected = source.id == activeId
-            frame.isSelected = selected
-            name.isSelected = selected
-            name.alpha = if (selected) 1f else 0.65f
-            itemView.isActivated = selected
+            check.visibility = if (selected) View.VISIBLE else View.GONE
+            itemView.isSelected = selected
+            itemView.contentDescription = source.name
 
             itemView.setOnClickListener { onClick(source) }
-            itemView.contentDescription = source.name
         }
     }
 }

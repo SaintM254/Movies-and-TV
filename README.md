@@ -12,42 +12,48 @@ Demo source shipped by default: [https://cinejoy.pk/](https://cinejoy.pk/)
 
 ## Features
 
-- **Multi-source browser** – each source is a website link you add by hand (name + URL).
-  Sources persist locally and can be edited, reordered or deleted at any time.
-- **Channel-style source switching** – a horizontal strip of website favicons acts as the
-  profile switcher. Tap one to change the channel; on TV use **CH+ / CH-** (or media
-  next/previous) to zap between sources.
+- **Full-screen browser** – the website fills the entire screen; no top bars, no button bars,
+  no on-screen remote hints. A floating **hamburger button on the left** opens a hidden
+  drawer — everything else is the site itself.
+- **Multi-source drawer** – each source is a website link you add by hand (name + URL).
+  Sources persist locally; the drawer lists them as switchable channels with their
+  website icons, and **Settings sits at the bottom of the drawer**.
+- **Channel-style switching** – pick a source from the drawer (or tap its icon) to change
+  the channel; on TV use **CH+ / CH-** (or media next/previous) to zap between sources.
 - **Native player (Media3/ExoPlayer)** – when a video URL is detected (HLS `.m3u8`, DASH
   `.mpd`, `.mp4`, …) playback opens in the built-in native player:
   - **Double-tap left / right half** of the screen to seek **−10 s / +10 s** (with a seek pill).
   - **D-pad ◀ / ▶** on the remote seek −10 s / +10 s (hold to keep seeking).
   - **OK / D-pad center** play-pause, **▲** show controls, **▼** hide controls.
   - Rewind / Fast-forward remote keys seek as well.
-  - CH+ / CH- switch source without leaving the player.
+  - CH+ / CH- switch source without leaving the player. The title overlay fades out
+    after a few seconds so video fills the screen.
 - **Android TV layout + D-pad support** (TCL & other Android TV devices):
   - Leanback launcher entry + TV banner.
   - Virtual **pointer cursor**: move it with the D-pad, OK clicks links — full web page
-    navigation without touch. Push past the top edge to reach the channel strip.
-  - REW/FF keys scroll the page, MENU opens settings, everything is focus-highlighted.
-- **Video URL extractor** – injected JavaScript watches `<video>` elements, `play()` calls,
-  fetch/XHR and player libraries; direct media URLs open natively, exotic (blob/DRM)
-  streams keep playing in the page (with fullscreen support).
-- **Website icons as profiles** – favicons are captured and cached automatically
+    navigation without touch. Push past the top edge to open the source drawer.
+  - REW/FF keys scroll the page, MENU toggles the drawer, everything is focus-highlighted.
+- **Modern link sourcing** – a lightweight extractor uses the Resource Timing API
+  (`PerformanceObserver`), fetch/XHR hooks and media-element hooks to find stream URLs
+  quickly; direct media opens natively, exotic (blob/DRM) streams keep playing in the
+  page (with fullscreen support).
+- **Website icons as profiles** – favicons are looked up through modern icon services
+  (DuckDuckGo → Google → the site itself) and cached automatically
   (with a generated letter-avatar fallback).
 
 ## Remote mapping (Android TV)
 
 | Key | Browser screen | Native player |
 | --- | --- | --- |
-| ◀ ▶ ▲ ▼ | Move virtual pointer (up-at-top-edge → channel strip) | ◀ ▶ seek ±10 s · ▲ show controls · ▼ hide |
+| ◀ ▶ ▲ ▼ | Move virtual pointer (up-at-top-edge → source drawer) | ◀ ▶ seek ±10 s · ▲ show controls · ▼ hide |
 | OK / Center | Click link | Play / pause (or focused button) |
 | CH+ / CH− | Previous / next source | Previous / next source |
 | Rewind / FF | Scroll page | Seek −10 s / +10 s |
-| MENU / Guide | Settings | Choose source list |
-| Back | Page history / exit | Hide controls / exit |
+| MENU / Guide | Toggle source drawer | Choose source list |
+| Back | Close drawer / page history / exit | Hide controls / exit |
 
-Touch phones: tap the favicon strip to switch sources; in the player **double-tap** the
-left/right screen half to seek, single tap toggles controls.
+Touch phones: swipe from the left edge or tap the hamburger to switch sources; in the
+player **double-tap** the left/right screen half to seek, single tap toggles controls.
 
 ## Project structure
 
@@ -57,12 +63,12 @@ app/src/main/java/com/vidsource/app/
 ├── data/                        # SourceProfile, SourceRepository (local JSON store)
 ├── util/                        # TV detection, immersive UI, favicon cache
 └── ui/
-    ├── MainActivity.kt          # Browser + source switcher + video detection
-    ├── SourceSwitcherAdapter.kt # Favicon "channel" strip
+    ├── MainActivity.kt          # Full-screen browser + hidden source drawer
+    ├── SourceDrawerAdapter.kt   # Channel list inside the drawer
     ├── browser/DpadPointerView.kt # Virtual D-pad cursor for web pages
     ├── player/PlayerActivity.kt # Native Media3 player (double-tap / D-pad seek)
     └── settings/SettingsActivity.kt # Add / edit / delete source links
-app/src/main/assets/video_hooks.js   # In-page video URL extractor
+app/src/main/assets/video_hooks.js   # In-page video link extractor
 app/src/main/res/layout-television/  # TV-specific layouts
 ```
 
@@ -85,14 +91,14 @@ Every `v*` tag triggers **GitHub Actions** (`.github/workflows/release.yml`) whi
 and publishes a GitHub Release with installable APKs + `SHA256SUMS.txt`:
 
 ```bash
-git tag v1.0.0 && git push origin v1.0.0   # → Release "Vidsource v1.0.0"
+git tag v1.0.1 && git push origin v1.0.1   # → Release "Vidsource v1.0.1"
 ```
 
 Grab the APK from the [Releases](../../releases) page, or:
 
 ```bash
-gh release download v1.0.0 --pattern 'Vidsource-1.0.0.apk' -R SaintM254/Movies-and-TV
-adb install Vidsource-1.0.0.apk
+gh release download v1.0.1 --pattern 'Vidsource-1.0.1.apk' -R SaintM254/Movies-and-TV
+adb install Vidsource-1.0.1.apk
 ```
 
 **Signing:** CI signs the release APK with a keystore stored in the Actions cache

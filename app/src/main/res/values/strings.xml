@@ -4,10 +4,13 @@
     <string name="app_tagline">Movies &amp; TV</string>
 
     <!-- Browser -->
-    <string name="hint_tv">◀▶▲▼ move pointer · OK click · REW/FF scroll page · CH± switch source · MENU settings</string>
-    <string name="hint_mobile">Browse the site below — videos open in the native player. Tap an icon to switch source.</string>
     <string name="switching_to">Switching to %1$s</string>
     <string name="settings">Settings</string>
+    <string name="open_menu">Open source menu</string>
+    <string name="close_menu">Close menu</string>
+    <string name="sources">Sources</string>
+    <string name="sources_subtitle">Switch channel</string>
+    <string name="active_channel">Playing</string>
 
     <!-- Player -->
     <string name="seek_back">« %1$ds</string>

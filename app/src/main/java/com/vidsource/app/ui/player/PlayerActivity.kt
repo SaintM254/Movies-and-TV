@@ -79,6 +79,17 @@ class PlayerActivity : AppCompatActivity() {
 
         buildPlayer(url)
         setupGestures()
+        autoHideTitle()
+    }
+
+    /** The title/source overlay fades out so video fills the whole screen. */
+    private fun autoHideTitle() {
+        val titleBar = findViewById<View>(R.id.playerTitleBar)
+        titleBar.postDelayed({
+            titleBar.animate().alpha(0f).setDuration(400).withEndAction {
+                titleBar.visibility = View.GONE
+            }.start()
+        }, TITLE_HIDE_MS)
     }
 
     private fun buildPlayer(url: String) {
@@ -366,6 +377,7 @@ class PlayerActivity : AppCompatActivity() {
 
         private const val SEEK_STEP_MS = 10_000L
         private const val SEEK_HINT_MS = 900L
+        private const val TITLE_HIDE_MS = 4_000L
         private const val HTTP_TIMEOUT_MS = 15_000
 
         fun createIntent(
