@@ -1,2 +1,138 @@
-# Movies-and-TV
-Android tv and mobile player
+# Vidsource 🎞️
+
+**Vidsource** is an Android app (phone, tablet & **Android TV**) that turns your favorite
+streaming websites into switchable TV channels. Add website links manually in Settings,
+switch between them from a favicon “profile” strip (like a channel list), and play detected
+videos in a **native player** with proper remote / double-tap seeking.
+
+Demo source shipped by default: [https://cinejoy.pk/](https://cinejoy.pk/)
+
+> **Branch note:** this work lives on `arena/afadddd0-movies-and-tv` and is intentionally
+> **not merged** — review / merge when you are ready.
+
+## Features
+
+- **Full-screen browser** – the website fills the entire screen; no top bars, no button bars,
+  no on-screen remote hints. A floating **hamburger button on the left** opens a hidden
+  drawer — everything else is the site itself.
+- **Multi-source drawer** – each source is a website link you add by hand (name + URL).
+  Sources persist locally; the drawer lists them as switchable channels with their
+  website icons, and **Settings sits at the bottom of the drawer**.
+- **Channel-style switching** – pick a source from the drawer (or tap its icon) to change
+  the channel; on TV use **CH+ / CH-** (or media next/previous) to zap between sources.
+- **Native player (Media3/ExoPlayer)** – when a video URL is detected (HLS `.m3u8`, DASH
+  `.mpd`, `.mp4`, …) playback opens in the built-in native player:
+  - **Double-tap left / right half** of the screen to seek **−10 s / +10 s** (with a seek pill).
+  - **D-pad ◀ / ▶** on the remote seek −10 s / +10 s (hold to keep seeking).
+  - **OK / D-pad center** play-pause, **▲** show controls, **▼** hide controls.
+  - Rewind / Fast-forward remote keys seek as well.
+  - CH+ / CH- switch source without leaving the player. The title overlay fades out
+    after a few seconds so video fills the screen.
+- **Android TV layout + D-pad support** (TCL & other Android TV devices):
+  - Leanback launcher entry + TV banner.
+  - Virtual **pointer cursor**: move it with the D-pad, OK clicks links — full web page
+    navigation without touch. Push past the top edge to open the source drawer.
+  - REW/FF keys scroll the page, MENU toggles the drawer, everything is focus-highlighted.
+- **Modern link sourcing** – a lightweight extractor uses the Resource Timing API
+  (`PerformanceObserver`), fetch/XHR hooks and media-element hooks to find stream URLs
+  quickly; direct media opens natively, exotic (blob/DRM) streams keep playing in the
+  page (with fullscreen support).
+- **Website icons as profiles** – favicons are looked up through modern icon services
+  (DuckDuckGo → Google → the site itself) and cached automatically
+  (with a generated letter-avatar fallback).
+
+## Remote mapping (Android TV)
+
+| Key | Browser screen | Native player |
+| --- | --- | --- |
+| ◀ ▶ ▲ ▼ | Move virtual pointer (up-at-top-edge → source drawer) | ◀ ▶ seek ±10 s · ▲ show controls · ▼ hide |
+| OK / Center | Click link | Play / pause (or focused button) |
+| CH+ / CH− | Previous / next source | Previous / next source |
+| Rewind / FF | Scroll page | Seek −10 s / +10 s |
+| MENU / Guide | Toggle source drawer | Choose source list |
+| Back | Close drawer / page history / exit | Hide controls / exit |
+
+Touch phones: swipe from the left edge or tap the hamburger to switch sources; in the
+player **double-tap** the left/right screen half to seek, single tap toggles controls.
+
+## Project structure
+
+```
+app/src/main/java/com/vidsource/app/
+├── VidsourceApp.kt              # App container (repo + favicon store)
+├── data/                        # SourceProfile, SourceRepository (local JSON store)
+├── util/                        # TV detection, immersive UI, favicon cache
+└── ui/
+    ├── MainActivity.kt          # Full-screen browser + hidden source drawer
+    ├── SourceDrawerAdapter.kt   # Channel list inside the drawer
+    ├── browser/DpadPointerView.kt # Virtual D-pad cursor for web pages
+    ├── player/PlayerActivity.kt # Native Media3 player (double-tap / D-pad seek)
+    └── settings/SettingsActivity.kt # Add / edit / delete source links
+app/src/main/assets/video_hooks.js   # In-page video link extractor
+app/src/main/res/layout-television/  # TV-specific layouts
+```
+
+## Build
+
+Requirements: **Android Studio** (Koala or newer), **JDK 17**, Android SDK 34.
+
+```bash
+# From the repo root
+./gradlew assembleDebug        # APK: app/build/outputs/apk/debug/app-debug.apk
+./gradlew installDebug         # Install on a connected device / TV (adb)
+```
+
+Or open the project in Android Studio and press Run. First Gradle sync downloads
+Gradle 8.7, the Android Gradle Plugin 8.5.2 and dependencies.
+
+### Releases (CI)
+
+Every `v*` tag triggers **GitHub Actions** (`.github/workflows/release.yml`) which builds
+and publishes a GitHub Release with installable APKs + `SHA256SUMS.txt`:
+
+```bash
+git tag v1.0.1 && git push origin v1.0.1   # → Release "Vidsource v1.0.1"
+```
+
+Grab the APK from the [Releases](../../releases) page, or:
+
+```bash
+gh release download v1.0.1 --pattern 'Vidsource-1.0.1.apk' -R SaintM254/Movies-and-TV
+adb install Vidsource-1.0.1.apk
+```
+
+**Signing:** CI signs the release APK with a keystore stored in the Actions cache
+(so upgrades install over older builds). To keep the signature stable *forever*,
+create a repo secret `VIDSOURCE_KEYSTORE_BASE64` containing a PKCS#12 keystore:
+
+```bash
+base64 -w0 my-keystore.p12      # paste output into
+# GitHub → Settings → Secrets and variables → Actions → New repository secret
+```
+
+(Optional: also set `VIDSOURCE_KEYSTORE_PASSWORD`; default is `vidsource`.)
+
+### Install on an Android TV (e.g. TCL)
+
+```bash
+adb connect <tv-ip>
+./gradlew installDebug
+# or: adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+## Tech
+
+- Kotlin, single `app` module, minSdk 21 (Android 5.0 — covers Android TV), target/compile SDK 34
+- [AndroidX Media3 / ExoPlayer](https://developer.android.com/media/media3/exoplayer) (HLS, DASH, progressive) + `media3-ui` TV-friendly controls
+- Material 3 (dark cinema theme), RecyclerView, coroutines
+- `WebView` browser layer with a JS bridge for stream URL extraction
+- No accounts, no tracking — sources are stored on-device only
+
+## Notes & limitations
+
+- `android:usesCleartextTraffic="true"` is enabled because many stream hosts still use
+  `http://` segments; tighten this in `AndroidManifest.xml` if you only use HTTPS sources.
+- Some sites serve DRM / MSE `blob:` streams — those can’t be handed to ExoPlayer, so they
+  keep playing inside the page (D-pad seek falls back to page keys there).
+- Add more sources via **Settings → Add source** (name + link). The demo CineJoy profile
+  is pre-seeded and can be edited or removed like any other.
